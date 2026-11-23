@@ -1,0 +1,125 @@
+import React, { useContext, useState } from "react";
+import axios from 'axios';
+import { useAuth } from './authContext.jsx';
+
+const BASE_URL = "http://localhost:5000/api/v1/";
+
+const GlobalContext = React.createContext();
+
+export const GlobalProvider = ({ children }) => {
+    const { token } = useAuth();  // ✅ Get token from auth context
+
+    const [incomes, setIncomes] = useState([]);
+    const [expenses, setExpenses] = useState([]);
+    const [error, setError] = useState(null);
+
+    // ✅ Create axios instance with Authorization header
+    const authAxios = axios.create({
+        baseURL: BASE_URL,
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+
+    // ---------------- INCOMES ----------------
+    const addIncome = async (income) => {
+        try {
+            await authAxios.post('add-income', income);
+            getIncomes();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Error adding income');
+        }
+    };
+
+    const getIncomes = async () => {
+        try {
+            const response = await authAxios.get('get-incomes');
+            setIncomes(response.data);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Error fetching incomes');
+        }
+    };
+
+    const deleteIncome = async (id) => {
+        try {
+            await authAxios.delete(`delete-income/${id}`);
+            getIncomes();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Error deleting income');
+        }
+    };
+
+    const totalIncome = () => {
+        return incomes.reduce((acc, item) => acc + item.amount, 0);
+    };
+
+    // ---------------- EXPENSES ----------------
+    const addExpense = async (expense) => {
+        try {
+            await authAxios.post('add-expense', expense);
+            getExpenses();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Error adding expense');
+        }
+    };
+
+    const getExpenses = async () => {
+        try {
+            const response = await authAxios.get('get-expenses');
+            setExpenses(response.data);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Error fetching expenses');
+        }
+    };
+
+    const deleteExpense = async (id) => {
+        try {
+            await authAxios.delete(`delete-expense/${id}`);
+            getExpenses();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Error deleting expense');
+        }
+    };
+
+    const totalExpenses = () => {
+        return expenses.reduce((acc, item) => acc + item.amount, 0);
+    };
+
+    // ---------------- BALANCE & HISTORY ----------------
+    const totalBalance = () => {
+        return totalIncome() - totalExpenses();
+    };
+
+    const transactionHistory = () => {
+        const history = [...incomes, ...expenses];
+        history.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        return history.slice(0, 3);
+    };
+
+    return (
+        <GlobalContext.Provider
+            value={{
+                addIncome,
+                getIncomes,
+                incomes,
+                deleteIncome,
+                expenses,
+                totalIncome,
+                addExpense,
+                getExpenses,
+                deleteExpense,
+                totalExpenses,
+                totalBalance,
+                transactionHistory,
+                error,
+                setError
+            }}
+        >
+            {children}
+        </GlobalContext.Provider>
+    );
+};
+
+export const useGlobalContext = () => {
+    return useContext(GlobalContext);
+};
